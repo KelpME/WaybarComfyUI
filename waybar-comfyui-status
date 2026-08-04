@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""Generate waybar JSON output with ComfyUI status and model info."""
+
+import argparse
+import json
+import subprocess
+import sys
+import urllib.request
+import urllib.error
+
+
+def is_port_listening(port):
+    """Check if the port is listening."""
+    try:
+        result = subprocess.run(
+            ["ss", "-tlnp"],
+            capture_output=True, text=True, timeout=5
+        )
+        return f":{port} " in result.stdout
+    except Exception:
+        return False
+
+
+def api_get(port, endpoint):
+    """Make a GET request to the ComfyUI API."""
+    try:
+        url = f"http://localhost:{port}{endpoint}"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return json.loads(resp.read())
+    except Exception:
+        return None
+
+
+def get_status(port):
+    """Get queue status."""
+    data = api_get(port, "/queue")
+    if not data:
+        return {"running": False, "queued": False}
+    return {
+        "running": len(data.get("Queue_running", [])) > 0,
+        "queued": len(data.get("Queue_pending", [])) > 0,
+    }
+
+
+def get_active_model(port):
+    """Get the checkpoint name from running/pending queue."""
+    data = api_get(port, "/queue")
+    if not data:
+        return None
+
+    for item in data.get("Queue_running", []) + data.get("Queue_pending", []):
+        if len(item) >= 3:
+            for node_data in item[2].values():
+                if node_data.get("class_type") == "CheckpointLoaderSimple":
+                    return node_data["inputs"].get("ckpt_name")
+    return None
+
+
+def get_models(port):
+    """Get available models by category."""
+    categories = api_get(port, "/models")
+    if not categories:
+        return {}
+
+    model_categories = [
+        "checkpoints", "loras", "controlnet", "vae", "text_encoders",
+        "diffusion_models", "clip_vision", "upscale_models", "ipadapter"
+    ]
+
+    result = {}
+    for cat in model_categories:
+        models = api_get(port, f"/models/{cat}")
+        if models and len(models) > 0:
+            result[cat] = models
+
+    return result
+
+
+def build_tooltip(status, models, active_model, port):
+    """Build the tooltip string."""
+    status_label = "Running" if status["running"] else "Idle"
+    lines = [f"ComfyUI ({status_label})", f"http://localhost:{port}"]
+
+    if models:
+        lines.append("")
+        lines.append("--- Available Models ---")
+        for cat, model_list in models.items():
+            count = len(model_list)
+            label = cat.replace("_", " ").title()
+            lines.append(f"{label}: {count}")
+            max_show = 5
+            for m in model_list[:max_show]:
+                lines.append(f"  - {m}")
+            if count > max_show:
+                lines.append(f"  ... and {count - max_show} more")
+
+    if active_model:
+        lines.append("")
+        lines.append("--- Active ---")
+        lines.append(f"Checkpoint: {active_model}")
+
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Waybar ComfyUI Status")
+    parser.add_argument("--port", type=int, default=8188)
+    args = parser.parse_args()
+
+    port = args.port
+
+    if not is_port_listening(port):
+        output = {
+            "text": " ○ ",
+            "tooltip": f"ComfyUI (Stopped)\nPort: {port}"
+        }
+        print(json.dumps(output))
+        return
+
+    status = get_status(port)
+    models = get_models(port)
+    active_model = get_active_model(port)
+
+    tooltip = build_tooltip(status, models, active_model, port)
+
+    output = {
+        "text": " 🟢 ",
+        "tooltip": tooltip
+    }
+    print(json.dumps(output))
+
+
+if __name__ == "__main__":
+    main()

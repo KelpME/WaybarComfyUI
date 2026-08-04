@@ -1,0 +1,19 @@
+#!/bin/bash
+
+PORT=8188
+COMFYUI_DIR="/home/tmo/comfyUI"
+SCRIPT_DIR="/home/tmo/Work/ComfyUI-Waybar"
+
+if ss -tlnp 2>/dev/null | grep -q ":$PORT "; then
+    pkill -9 -f "main.py" 2>/dev/null || true
+    sleep 1
+    notify-send "ComfyUI" "Server stopped"
+else
+    make -C "$SCRIPT_DIR" start 2>&1
+    sleep 3
+    if ss -tlnp 2>/dev/null | grep -q ":$PORT "; then
+        notify-send "ComfyUI" "Server started on port $PORT"
+    else
+        notify-send "ComfyUI" "Failed to start server"
+    fi
+fi
