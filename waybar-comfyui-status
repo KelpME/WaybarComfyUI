@@ -112,7 +112,7 @@ def main():
 
     if not is_port_listening(port):
         output = {
-            "text": " ○ ",
+            "text": "○",
             "tooltip": f"ComfyUI (Stopped)\nPort: {port}"
         }
         print(json.dumps(output))
@@ -125,7 +125,7 @@ def main():
     tooltip = build_tooltip(status, models, active_model, port)
 
     output = {
-        "text": " 🟢 ",
+        "text": "🟢",
         "tooltip": tooltip
     }
     print(json.dumps(output))
