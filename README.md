@@ -2,6 +2,8 @@
 
 Waybar module that shows ComfyUI status on port 8188 and toggles the server on click. Built for the Omarchy Quattro bar (`~/.config/omarchy/shell.json`).
 
+> **Omarchy Quattro note:** The updates pushed to this repo on **Aug 20, 2026** target the Omarchy Quattro bar. If you are on an Omarchy version **older than Quattro**, use the last pre-Quattro version: the [`pre-quattro`](https://github.com/KelpME/WaybarComfyUI/tree/pre-quattro) tag.
+
 ## What it does
 
 - **○** — ComfyUI is stopped (nothing listening on port 8188)
